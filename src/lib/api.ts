@@ -171,18 +171,24 @@ export const getBlogs = cache(async () => {
 
 export const getBlogBySlug = cache(async (slug: string) => {
   try {
-    const res = await fetch(`https://cms.furnishings.daikimedia.com/api/blogs/${slug}`);
-    
-    if (res.ok) {
+    // Try direct slug endpoint with retry logic
+    const res = await fetchWithRetry(`${API_BASE}/blogs/${slug}`, {
+      next: { revalidate: 1800 },
+    });
+
+    if (res) {
       const data = await res.json();
-      return data;
+      // Handle both direct object and wrapped responses
+      if (data && !data.error) return data.data ?? data;
     }
-    const allRes = await fetch(`https://cms.furnishings.daikimedia.com/api/blogs/all-blogs`);
-    const allBlogs = await allRes.json();
-    return allBlogs.find((blog: any) => blog.slug === slug) || null;
-    
+
+    // Fallback: search within all blogs
+    const allBlogs = await getBlogs();
+    const found = allBlogs.data?.find((blog: any) => blog.slug === slug);
+    return found || null;
+
   } catch (error) {
-    console.error('Error:', error);
+    console.error('Error fetching blog by slug:', error);
     return null;
   }
 });

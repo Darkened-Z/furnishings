@@ -19,10 +19,15 @@ interface BlogPost {
 export default function SingleBlogContent({ blog }: { blog: BlogPost }) {
     const processContent = (content: string): string => {
         const baseUrl = 'https://cms.furnishings.daikimedia.com';
-        return content.replace(
-            /src="\/storage\//g,
-            `src="${baseUrl}/storage/`
-        );
+
+        return content
+            // Fix relative image URLs
+            .replace(/src="\/storage\//g, `src="${baseUrl}/storage/`)
+            // Demote headings in reverse order to avoid cascading replacements:
+            // h3 → h4, then h2 → h3, then h1 → h2
+            .replace(/<h3(\s|>)/gi, '<h4$1').replace(/<\/h3>/gi, '</h4>')
+            .replace(/<h2(\s|>)/gi, '<h3$1').replace(/<\/h2>/gi, '</h3>')
+            .replace(/<h1(\s|>)/gi, '<h2$1').replace(/<\/h1>/gi, '</h2>');
     };
 
     return (
