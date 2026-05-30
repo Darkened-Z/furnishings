@@ -129,18 +129,18 @@ html {
 
 /* Blog post prose heading styles */
 .prose h2 {
-  font-size: 1.5rem;
+  font-size: 1.875rem;
   font-weight: 700;
   color: #0e1018;
-  margin-top: 2rem;
+  margin-top: 2.5rem;
   margin-bottom: 0.75rem;
-  line-height: 1.3;
+  line-height: 1.25;
 }
 
 .prose h3 {
-  font-size: 1.2rem;
+  font-size: 1.125rem;
   font-weight: 600;
-  color: #1e293b;
+  color: #374151;
   margin-top: 1.5rem;
   margin-bottom: 0.5rem;
   line-height: 1.4;
