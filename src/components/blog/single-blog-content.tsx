@@ -19,15 +19,8 @@ interface BlogPost {
 export default function SingleBlogContent({ blog }: { blog: BlogPost }) {
     const processContent = (content: string): string => {
         const baseUrl = 'https://cms.furnishings.daikimedia.com';
-
-        return content
-            // Fix relative image URLs
-            .replace(/src="\/storage\//g, `src="${baseUrl}/storage/`)
-            // Demote headings in reverse order to avoid cascading replacements:
-            // h3 → h4, then h2 → h3, then h1 → h2
-            .replace(/<h3(\s|>)/gi, '<h4$1').replace(/<\/h3>/gi, '</h4>')
-            .replace(/<h2(\s|>)/gi, '<h3$1').replace(/<\/h2>/gi, '</h3>')
-            .replace(/<h1(\s|>)/gi, '<h2$1').replace(/<\/h1>/gi, '</h2>');
+        // Fix relative image URLs only — heading hierarchy is managed in the CMS
+        return content.replace(/src="\/storage\//g, `src="${baseUrl}/storage/`);
     };
 
     return (
@@ -35,8 +28,6 @@ export default function SingleBlogContent({ blog }: { blog: BlogPost }) {
             <PageHeader title={blog.title} />
             <section className="py-12 px-6">
                 <div className="container mx-auto max-w-4xl">
-                    <h1 className="text-4xl font-bold mb-4">{blog.title}</h1>
-                    
                     <p className="text-gray-500 mb-6">
                         By {blog.author} | {new Date(blog.publish_date).toDateString()}
                     </p>
