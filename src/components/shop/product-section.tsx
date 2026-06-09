@@ -6,7 +6,6 @@ import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import SquareLoader from "../common/loader";
 import { Suspense } from 'react';
-import { getCategories, getProducts } from "@/lib/api";
 import { Category, Product, ProductListItem, toProductListItem, formatPrice } from "@/lib/interfaces";
 
 interface ProductsSectionProps {
@@ -15,6 +14,9 @@ interface ProductsSectionProps {
     sort?: string;
     itemsPerPage?: number;
     showAll?: boolean;
+    // Data fetched on the server (cached) and passed in as props.
+    initialProducts?: Product[];
+    initialCategories?: Category[];
 }
 
 // Custom hook for debouncing
@@ -39,113 +41,69 @@ function ProductsSectionContent({
     category,
     sort,
     itemsPerPage = 12,
+    initialProducts = [],
+    initialCategories = [],
 }: ProductsSectionProps) {
     const router = useRouter();
     const searchParams = useSearchParams();
-    
-    // State
-    const [products, setProducts] = useState<ProductListItem[]>([]);
-    const [categories, setCategories] = useState<Category[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+
     const [hoveredProduct, setHoveredProduct] = useState<number | null>(null);
-    
+
     // Filter states - initialize from URL
     const [selectedCategories, setSelectedCategories] = useState<string[]>(
         category ? category.split(',') : []
     );
     const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
     const [sortBy, setSortBy] = useState(sort || 'default');
-    
-    // Pagination state
-    const [totalProducts, setTotalProducts] = useState(0);
-    const [totalPages, setTotalPages] = useState(1);
+
+    // Categories come from the server (cached) via props.
+    const categories = initialCategories;
 
     // Debounce filter values to prevent too many URL updates
     const debouncedCategories = useDebounce(selectedCategories, 500);
     const debouncedBrands = useDebounce(selectedBrands, 500);
     const debouncedSort = useDebounce(sortBy, 500);
 
-    // Fetch categories on mount
-    useEffect(() => {
-        const fetchCategories = async () => {
-            try {
-                const data = await getCategories();
-                setCategories(data);
-            } catch (error) {
-                console.error('Error fetching categories:', error);
-            }
-        };
+    // Derive the visible products by filtering + sorting + paginating the
+    // server-provided data on the client (no API request here).
+    const { products, totalProducts, totalPages } = useMemo(() => {
+        let filtered = [...initialProducts];
 
-        fetchCategories();
-    }, []);
+        if (selectedCategories.length > 0) {
+            filtered = filtered.filter(
+                (p) => p.category && selectedCategories.includes(p.category.name)
+            );
+        }
 
-    // Fetch products when dependencies change
-    useEffect(() => {
-        const fetchProducts = async () => {
-            try {
-                setLoading(true);
-                setError(null);
-                
-                const allProducts = await getProducts();
-                
-                // Filter products based on selected categories and brands
-                let filtered = [...allProducts];
-                
-                if (selectedCategories.length > 0) {
-                    filtered = filtered.filter(p => 
-                        p.category && selectedCategories.includes(p.category.name)
-                    );
+        if (selectedBrands.length > 0) {
+            filtered = filtered.filter((p) =>
+                selectedBrands.includes(p.brand.toLowerCase())
+            );
+        }
+
+        if (sortBy !== 'default') {
+            filtered.sort((a, b) => {
+                const priceA = (a.retail_price || a.purchase_price || 0) as number;
+                const priceB = (b.retail_price || b.purchase_price || 0) as number;
+                switch (sortBy) {
+                    case 'price-asc': return priceA - priceB;
+                    case 'price-desc': return priceB - priceA;
+                    case 'name-asc': return a.name.localeCompare(b.name);
+                    case 'name-desc': return b.name.localeCompare(a.name);
+                    default: return 0;
                 }
-                
-                if (selectedBrands.length > 0) {
-                    filtered = filtered.filter(p => 
-                        selectedBrands.includes(p.brand.toLowerCase())
-                    );
-                }
-                
-                // Sort products
-                if (sortBy !== 'default') {
-                    filtered.sort((a, b) => {
-                        const priceA = a.retail_price || a.purchase_price || 0;
-                        const priceB = b.retail_price || b.purchase_price || 0;
-                        
-                        switch(sortBy) {
-                            case 'price-asc':
-                                return (priceA as number) - (priceB as number);
-                            case 'price-desc':
-                                return (priceB as number) - (priceA as number);
-                            case 'name-asc':
-                                return a.name.localeCompare(b.name);
-                            case 'name-desc':
-                                return b.name.localeCompare(a.name);
-                            default:
-                                return 0;
-                        }
-                    });
-                }
-                
-                setTotalProducts(filtered.length);
-                setTotalPages(Math.ceil(filtered.length / itemsPerPage));
-                
-                // Apply pagination
-                const startIndex = (page - 1) * itemsPerPage;
-                const paginatedProducts = filtered.slice(startIndex, startIndex + itemsPerPage);
-                
-                // Transform to list items
-                const productListItems = paginatedProducts.map(toProductListItem);
-                setProducts(productListItems);
+            });
+        }
 
-            } catch (error) {
-                console.error('Error fetching products:', error);
-                setError('Failed to load products. Please try again.');
-            } finally {
-                setLoading(false);
-            }
-        };
+        const total = filtered.length;
+        const pages = Math.ceil(total / itemsPerPage) || 1;
+        const startIndex = (page - 1) * itemsPerPage;
+        const paginated = filtered
+            .slice(startIndex, startIndex + itemsPerPage)
+            .map(toProductListItem);
 
-        fetchProducts();
-    }, [page, selectedCategories, selectedBrands, sortBy, itemsPerPage]);
+        return { products: paginated, totalProducts: total, totalPages: pages };
+    }, [initialProducts, selectedCategories, selectedBrands, sortBy, page, itemsPerPage]);
 
     // Update URL when debounced filters change
     useEffect(() => {
@@ -221,22 +179,6 @@ function ProductsSectionContent({
         return Array.from(uniqueBrands);
     }, []);
 
-    if (error) {
-        return (
-            <div className="min-h-[500px] flex items-center justify-center">
-                <div className="text-center">
-                    <p className="text-red-600 text-lg mb-4">{error}</p>
-                    <button
-                        onClick={() => window.location.reload()}
-                        className="bg-orange-600 text-white px-6 py-2 rounded-md hover:bg-orange-700 transition-colors"
-                    >
-                        Try Again
-                    </button>
-                </div>
-            </div>
-        );
-    }
-
     return (
         <div className="py-16 bg-white">
             <div className="container mx-auto px-4 sm:px-6 lg:px-8">
@@ -251,7 +193,7 @@ function ProductsSectionContent({
 
                 <div className="flex flex-col lg:flex-row gap-8">
                     {/* Filters Sidebar */}
-                    {!loading && products.length > 0 && (
+                    {products.length > 0 && (
                         <div className="w-full lg:w-64 flex-shrink-0">
                             <div className="bg-gray-50 p-6 rounded-lg sticky top-24">
                                 <div className="flex justify-between items-center mb-6">
@@ -312,43 +254,35 @@ function ProductsSectionContent({
                             </div>
                         </div>
 
-                        {loading ? (
-                            <div className="min-h-[500px] flex items-center justify-center">
-                                <SquareLoader text="Loading..." />
+                        {products.length === 0 ? (
+                            <div className="text-center py-12">
+                                <p className="text-gray-500 text-lg mb-4">No products found.</p>
+                                <Link
+                                    href="/shop"
+                                    className="text-orange-600 hover:text-orange-700 font-medium"
+                                >
+                                    Browse all products
+                                </Link>
                             </div>
                         ) : (
                             <>
-                                {products.length === 0 ? (
-                                    <div className="text-center py-12">
-                                        <p className="text-gray-500 text-lg mb-4">No products found.</p>
-                                        <Link
-                                            href="/shop"
-                                            className="text-orange-600 hover:text-orange-700 font-medium"
-                                        >
-                                            Browse all products
-                                        </Link>
-                                    </div>
-                                ) : (
-                                    <>
-                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-8 mb-8">
-                                            {products.map((product) => (
-                                                <ProductCard
-                                                    key={product.id}
-                                                    product={product}
-                                                    isHovered={hoveredProduct === product.id}
-                                                    onHover={setHoveredProduct}
-                                                />
-                                            ))}
-                                        </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-8 mb-8">
+                                    {products.map((product) => (
+                                        <ProductCard
+                                            key={product.id}
+                                            product={product}
+                                            isHovered={hoveredProduct === product.id}
+                                            onHover={setHoveredProduct}
+                                        />
+                                    ))}
+                                </div>
 
-                                        {totalPages > 1 && (
-                                            <Pagination
-                                                currentPage={page}
-                                                totalPages={totalPages}
-                                                onPageChange={handlePageChange}
-                                            />
-                                        )}
-                                    </>
+                                {totalPages > 1 && (
+                                    <Pagination
+                                        currentPage={page}
+                                        totalPages={totalPages}
+                                        onPageChange={handlePageChange}
+                                    />
                                 )}
                             </>
                         )}

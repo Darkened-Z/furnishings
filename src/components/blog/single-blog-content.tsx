@@ -1,5 +1,5 @@
-'use client';
-
+// Server component: only renders blog content (no client-side state/effects),
+// so it ships no client JS and the related products are fetched on the server.
 import Image from "next/image";
 import PageHeader from "@/components/common/header";
 import RelatedProducts from "@/components/blog/related-products";
