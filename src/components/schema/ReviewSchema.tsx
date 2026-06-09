@@ -1,5 +1,5 @@
-"use client";
-
+// Server component: emits static JSON-LD only (no hooks / interactivity),
+// so it ships zero client JavaScript.
 const ReviewSchema = () => {
     const reviews = [
         {
