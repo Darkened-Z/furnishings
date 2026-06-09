@@ -2,6 +2,7 @@
 import { useState, useRef } from 'react';
 import { ArrowLeft, ArrowRight, Star, Shield, Users } from 'lucide-react';
 import Link from 'next/link';
+import Image from 'next/image';
 
 const slides = [
     {
@@ -60,12 +61,24 @@ export default function HeroBanner() {
     return (
         <div className="bg-gradient-to-br from-gray-50 to-white">
             <div
-                className="relative bg-cover bg-center bg-no-repeat transition-all duration-500"
-                style={{ backgroundImage: `url(${slides[currentSlide].image})` }}
+                className="relative overflow-hidden transition-all duration-500"
                 onTouchStart={handleTouchStart}
                 onTouchMove={handleTouchMove}
                 onTouchEnd={handleTouchEnd}
             >
+                {/* Optimized hero/LCP image (next/image serves WebP/AVIF, resized & preloaded) */}
+                {slides.map((slide, index) => (
+                    <Image
+                        key={slide.image}
+                        src={slide.image}
+                        alt={slide.title}
+                        fill
+                        priority={index === 0}
+                        sizes="100vw"
+                        className={`object-cover transition-opacity duration-500 ${index === currentSlide ? 'opacity-100' : 'opacity-0'
+                            }`}
+                    />
+                ))}
                 <div className="absolute inset-0 bg-black bg-opacity-70" />
                 <div className="container mx-auto px-6 py-20 relative z-10">
                     <div className="text-center space-y-8">
