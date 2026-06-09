@@ -12,7 +12,7 @@ export const metadata = {
 
 export default function About() {
     return (<>
-        <PageHeader title="About Furnishing Malaysia" />
+        <PageHeader title="About the Furnishing Malaysia" />
         <AboutUs />
         <CTASection />
     </>
