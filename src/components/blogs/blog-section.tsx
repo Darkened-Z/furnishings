@@ -1,10 +1,8 @@
-'use client';
-
-import { useState, useEffect, Suspense } from 'react';
+// Server component: blogs are fetched on the cached server, so the browser no
+// longer downloads the large /api/blogs payload. Pagination uses normal links
+// (?page=N) which the statically-rendered route serves from cache.
 import Image from 'next/image';
 import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
-import SquareLoader from '../common/loader';
 import { getBlogs } from '@/lib/api';
 import { Blog, getBlogImageUrl } from '@/lib/interfaces';
 
@@ -16,166 +14,94 @@ interface BlogListProps {
   currentPage?: number;
 }
 
-const BlogListContent = ({
+function getVisiblePages(currentPage: number, totalPages: number): (number | '...')[] {
+  if (totalPages <= 7) {
+    return Array.from({ length: totalPages }, (_, i) => i + 1);
+  }
+  if (currentPage <= 4) {
+    return [1, 2, 3, 4, 5, '...', totalPages];
+  }
+  if (currentPage >= totalPages - 3) {
+    return [1, '...', totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1, totalPages];
+  }
+  return [1, '...', currentPage - 1, currentPage, currentPage + 1, '...', totalPages];
+}
+
+function PaginationControls({
+  currentPage,
+  totalPages,
+}: {
+  currentPage: number;
+  totalPages: number;
+}) {
+  if (totalPages <= 1) return null;
+
+  const visiblePages = getVisiblePages(currentPage, totalPages);
+  const baseBtn = 'px-4 py-2 rounded-md transition-colors';
+
+  return (
+    <div className="flex justify-center items-center space-x-2 mt-12">
+      {currentPage === 1 ? (
+        <span className={`${baseBtn} bg-gray-100 text-gray-400 cursor-not-allowed`}>Previous</span>
+      ) : (
+        <Link href={`?page=${currentPage - 1}`} className={`${baseBtn} bg-orange-600 text-white hover:bg-orange-700`}>
+          Previous
+        </Link>
+      )}
+
+      <div className="flex space-x-2">
+        {visiblePages.map((page, index) =>
+          page === '...' ? (
+            <span key={`ellipsis-${index}`} className="w-10 h-10 flex items-center justify-center">
+              ...
+            </span>
+          ) : (
+            <Link
+              key={page}
+              href={`?page=${page}`}
+              className={`w-10 h-10 flex items-center justify-center rounded-md transition-colors ${
+                currentPage === page
+                  ? 'bg-orange-600 text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              {page}
+            </Link>
+          )
+        )}
+      </div>
+
+      {currentPage === totalPages ? (
+        <span className={`${baseBtn} bg-gray-100 text-gray-400 cursor-not-allowed`}>Next</span>
+      ) : (
+        <Link href={`?page=${currentPage + 1}`} className={`${baseBtn} bg-orange-600 text-white hover:bg-orange-700`}>
+          Next
+        </Link>
+      )}
+    </div>
+  );
+}
+
+export default async function BlogList({
   limit,
   showHeader = true,
   showPagination = false,
   itemsPerPage = 9,
-  currentPage: propCurrentPage,
-}: BlogListProps) => {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-
-  const initialPage = propCurrentPage || Number(searchParams.get('page')) || 1;
-  const [currentPage, setCurrentPage] = useState(initialPage);
-
-  const [blogs, setBlogs] = useState<Blog[]>([]);
-  const [allBlogs, setAllBlogs] = useState<Blog[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const pageFromUrl = propCurrentPage || Number(searchParams.get('page')) || 1;
-    setCurrentPage(pageFromUrl);
-  }, [searchParams, propCurrentPage]);
-
-  useEffect(() => {
-    const fetchBlogs = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-
-        const response = await getBlogs();
-
-        if (response.success && response.data) {
-          const blogsData = response.data;
-          setAllBlogs(blogsData);
-
-          if (!showPagination) {
-            setBlogs(limit ? blogsData.slice(0, limit) : blogsData);
-          }
-        } else {
-          throw new Error('Failed to fetch blogs');
-        }
-      } catch (err) {
-        console.error('Error fetching blogs:', err);
-        setError('Failed to load blogs. Please try again.');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchBlogs();
-  }, [limit, showPagination]);
+  currentPage = 1,
+}: BlogListProps) {
+  const response = await getBlogs();
+  const allBlogs: Blog[] = response.success && Array.isArray(response.data) ? response.data : [];
 
   const totalBlogs = allBlogs.length;
   const totalPages = Math.ceil(totalBlogs / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const paginatedBlogs = allBlogs.slice(startIndex, startIndex + itemsPerPage);
-  const displayBlogs = showPagination ? paginatedBlogs : blogs;
 
-    const handlePageChange = (page: number) => {
-    if (page < 1 || page > totalPages) return; // prevent invalid pages
-    setCurrentPage(page);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-    };
-
-
-  const PaginationControls = () => {
-    if (totalPages <= 1) return null;
-
-    const getVisiblePages = () => {
-      if (totalPages <= 7) {
-        return Array.from({ length: totalPages }, (_, i) => i + 1);
-      }
-
-      if (currentPage <= 4) {
-        return [1, 2, 3, 4, 5, '...', totalPages];
-      }
-
-      if (currentPage >= totalPages - 3) {
-        return [1, '...', totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1, totalPages];
-      }
-
-      return [1, '...', currentPage - 1, currentPage, currentPage + 1, '...', totalPages];
-    };
-
-    const visiblePages = getVisiblePages();
-
-    return (
-      <div className="flex justify-center items-center space-x-2 mt-12">
-        <button
-          onClick={() => handlePageChange(currentPage - 1)}
-          disabled={currentPage === 1}
-          className={`px-4 py-2 rounded-md transition-colors ${
-            currentPage === 1
-              ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-              : 'bg-orange-600 text-white hover:bg-orange-700'
-          }`}
-        >
-          Previous
-        </button>
-
-        <div className="flex space-x-2">
-          {visiblePages.map((page, index) =>
-            page === '...' ? (
-              <span
-                key={`ellipsis-${index}`}
-                className="w-10 h-10 flex items-center justify-center"
-              >
-                ...
-              </span>
-            ) : (
-              <button
-                key={page}
-                onClick={() => handlePageChange(page as number)}
-                className={`w-10 h-10 rounded-md transition-colors ${
-                  currentPage === page
-                    ? 'bg-orange-600 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-              >
-                {page}
-              </button>
-            )
-          )}
-        </div>
-
-        <button
-          onClick={() => handlePageChange(currentPage + 1)}
-          disabled={currentPage === totalPages}
-          className={`px-4 py-2 rounded-md transition-colors ${
-            currentPage === totalPages
-              ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-              : 'bg-orange-600 text-white hover:bg-orange-700'
-          }`}
-        >
-          Next
-        </button>
-      </div>
-    );
-  };
-
-  if (loading) {
-    return (
-      <div className="min-h-[400px] flex items-center justify-center">
-        <SquareLoader text="Loading..." />
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="text-center py-12">
-        <p className="text-red-600 mb-4">Error: {error}</p>
-        <button
-          onClick={() => window.location.reload()}
-          className="bg-orange-600 text-white px-6 py-2 rounded-lg hover:bg-orange-700 transition-colors"
-        >
-          Try Again
-        </button>
-      </div>
-    );
+  let displayBlogs: Blog[];
+  if (showPagination) {
+    const safePage = Math.min(Math.max(currentPage, 1), Math.max(totalPages, 1));
+    const startIndex = (safePage - 1) * itemsPerPage;
+    displayBlogs = allBlogs.slice(startIndex, startIndex + itemsPerPage);
+  } else {
+    displayBlogs = limit ? allBlogs.slice(0, limit) : allBlogs;
   }
 
   if (displayBlogs.length === 0) {
@@ -193,8 +119,7 @@ const BlogListContent = ({
           <div className="text-center mb-12">
             <h2 className="text-3xl font-bold mb-4">Our Blogs</h2>
             <p className="text-gray-600 text-xl max-w-3xl mx-auto">
-              Stay updated with the latest ideas, inspiration, and innovations
-              from the furnishing world
+              Stay updated with the latest ideas, inspiration, and innovations from the furnishing world
             </p>
           </div>
         )}
@@ -246,22 +171,8 @@ const BlogListContent = ({
           })}
         </div>
 
-        {showPagination && <PaginationControls />}
+        {showPagination && <PaginationControls currentPage={currentPage} totalPages={totalPages} />}
       </div>
     </section>
-  );
-};
-
-export default function BlogList(props: BlogListProps) {
-  return (
-    <Suspense
-      fallback={
-        <div className="min-h-[400px] flex items-center justify-center">
-          <SquareLoader text="Loading..." />
-        </div>
-      }
-    >
-      <BlogListContent {...props} />
-    </Suspense>
   );
 }

@@ -2,27 +2,24 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from "react";
-import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import SquareLoader from "../common/loader";
-import { getCategories, getProducts } from "@/lib/api";
 import { Category, Product, getFullImageUrl, getProductDisplayPrice } from "@/lib/interfaces";
 
 interface CategoryPageProps {
     slug?: string;
+    // Products (already filtered to this category) and the category itself are
+    // fetched on the cached server and passed in as props.
+    initialProducts?: Product[];
+    initialCategory?: Category | null;
 }
 
-export default function CategoryPage({ slug: propSlug }: CategoryPageProps) {
-    const params = useParams();
-    const router = useRouter();
-    
-    const slug = propSlug || (params?.slug as string);
-    const [categoryProducts, setCategoryProducts] = useState<Product[]>([]);
-    const [currentCategory, setCurrentCategory] = useState<Category | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
-    const [filterLoading, setFilterLoading] = useState(false);
+export default function CategoryPage({
+    initialProducts = [],
+    initialCategory = null,
+}: CategoryPageProps) {
+    const categoryProducts = initialProducts;
+    const currentCategory = initialCategory;
 
     const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
     const [selectedPriceRanges, setSelectedPriceRanges] = useState<string[]>([]);
@@ -32,16 +29,8 @@ export default function CategoryPage({ slug: propSlug }: CategoryPageProps) {
 
     const categoryName = currentCategory?.name;
 
-    const scrollToTop = () => {
-        window.scrollTo({
-            top: 0,
-            behavior: 'smooth'
-        });
-    };
-
     // Filter products based on selected filters
     const filteredProducts = useMemo(() => {
-        setFilterLoading(true);
         let filtered = categoryProducts;
 
         // Filter by brands
@@ -72,7 +61,6 @@ export default function CategoryPage({ slug: propSlug }: CategoryPageProps) {
             });
         }
 
-        setFilterLoading(false);
         return filtered;
     }, [categoryProducts, selectedBrands, selectedPriceRanges]);
 
@@ -96,56 +84,8 @@ export default function CategoryPage({ slug: propSlug }: CategoryPageProps) {
     }, [selectedBrands, selectedPriceRanges]);
 
     useEffect(() => {
-        scrollToTop();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
     }, [currentPage]);
-
-    useEffect(() => {
-        const fetchCategoryData = async () => {
-            if (!slug || typeof slug !== 'string') {
-                return;
-            }
-
-            try {
-                setLoading(true);
-                setError(null);
-
-                // Fetch categories and products using centralized API
-                const [categoriesData, productsData] = await Promise.all([
-                    getCategories(),
-                    getProducts()
-                ]);
-
-                // Find current category
-                const normalizedSlug = slug.toLowerCase().trim();
-                const category = categoriesData?.find((cat: Category) => 
-                    cat.slug.toLowerCase().trim() === normalizedSlug
-                );
-
-                if (!category) {
-                    setError('Category not found');
-                    setLoading(false);
-                    return;
-                }
-
-                setCurrentCategory(category);
-
-                // Filter products for this category
-                const categoryProductsList = productsData?.filter(
-                    (p: Product) => p.category?.slug.toLowerCase().trim() === normalizedSlug
-                ) || [];
-
-                setCategoryProducts(categoryProductsList);
-
-            } catch (error) {
-                console.error('Error fetching category data:', error);
-                setError('Failed to load category data. Please try again.');
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        fetchCategoryData();
-    }, [slug]);
 
     const handlePageChange = (newPage: number) => {
         setCurrentPage(newPage);
@@ -261,46 +201,8 @@ export default function CategoryPage({ slug: propSlug }: CategoryPageProps) {
         );
     };
 
-    if (loading) {
-        return (
-            <div className="min-h-screen flex items-center justify-center">
-                <SquareLoader text="Loading..." />
-            </div>
-        );
-    }
-
-    if (error) {
-        return (
-            <div className="min-h-screen flex items-center justify-center">
-                <div className="text-center">
-                    <h1 className="text-2xl font-bold text-red-600 mb-4">Error</h1>
-                    <p className="text-gray-600 mb-4">{error}</p>
-                    <button
-                        onClick={() => router.push('/')}
-                        className="bg-orange-600 text-white px-6 py-2 rounded-lg hover:bg-orange-700 transition-colors"
-                    >
-                        Go Back Home
-                    </button>
-                </div>
-            </div>
-        );
-    }
-
     if (!currentCategory) {
-        return (
-            <div className="min-h-screen flex items-center justify-center">
-                <div className="text-center">
-                    <h1 className="text-2xl font-bold text-gray-800 mb-4">Category Not Found</h1>
-                    <p className="text-gray-600 mb-4">The category you're looking for doesn't exist.</p>
-                    <button
-                        onClick={() => router.push('/')}
-                        className="bg-orange-600 text-white px-6 py-2 rounded-lg hover:bg-orange-700 transition-colors"
-                    >
-                        Go Back Home
-                    </button>
-                </div>
-            </div>
-        );
+        return null;
     }
 
     return (
@@ -427,11 +329,7 @@ export default function CategoryPage({ slug: propSlug }: CategoryPageProps) {
                         )}
 
                         {/* Products */}
-                        {filterLoading ? (
-                            <div className="flex justify-center items-center h-64">
-                                <SquareLoader text="Filtering products..." />
-                            </div>
-                        ) : filteredProducts.length === 0 ? (
+                        {filteredProducts.length === 0 ? (
                             <div className="bg-white rounded-lg shadow-sm p-12 text-center">
                                 <h2 className="text-xl font-semibold text-gray-700 mb-4">No Products Found</h2>
                                 <p className="text-gray-600 mb-6">Try adjusting your filters to see more results.</p>
