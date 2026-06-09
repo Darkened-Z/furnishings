@@ -49,7 +49,7 @@ async function fetchWithRetry(url: string, options: RequestInit = {}, retries = 
 }
 
 
-export const getProducts = cache(async () => {
+const fetchProducts = async () => {
   try {
     const res = await fetchWithRetry(`${API_BASE}/products`, {
       next: { revalidate: 1800 },
@@ -63,6 +63,25 @@ export const getProducts = cache(async () => {
     console.error("Failed to fetch products:", error);
     return [];
   }
+};
+
+// Browser-side memoization: several client components call getProducts() from
+// their own useEffect, and React's cache() only dedupes during a server render.
+// Without this, /api/products (a large payload) is downloaded multiple times per
+// page load. Caching the in-flight promise per browser session fixes that.
+let clientProductsPromise: ReturnType<typeof fetchProducts> | null = null;
+
+export const getProducts = cache(async () => {
+  if (typeof window !== "undefined") {
+    if (!clientProductsPromise) {
+      clientProductsPromise = fetchProducts().catch((error) => {
+        clientProductsPromise = null; // allow retry on failure
+        throw error;
+      });
+    }
+    return clientProductsPromise;
+  }
+  return fetchProducts();
 });
 
 export const getProductBySlug = cache(async (slug: string) => {
