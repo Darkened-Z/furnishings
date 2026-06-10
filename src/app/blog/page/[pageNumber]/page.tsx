@@ -1,9 +1,7 @@
 import { notFound, redirect } from "next/navigation";
-import { Suspense } from "react";
 import type { Metadata } from "next";
 import PageHeader from "@/components/common/header";
 import BlogList from "@/components/blogs/blog-section";
-import ProductsLoading from "@/components/shop/products-loading";
 import { getBlogs } from "@/lib/api";
 
 // Path-based pagination (/blog/page/2, /blog/page/3, ...) so every page is a
@@ -53,13 +51,11 @@ export default async function BlogPaginatedPage({ params }: Props) {
     <main>
       <PageHeader title="Flooring & Home Décor Blog in Malaysia" />
 
-      <Suspense fallback={<ProductsLoading />}>
-        <BlogList
-          showPagination={true}
-          itemsPerPage={ITEMS_PER_PAGE}
-          currentPage={currentPage}
-        />
-      </Suspense>
+      <BlogList
+        showPagination={true}
+        itemsPerPage={ITEMS_PER_PAGE}
+        currentPage={currentPage}
+      />
     </main>
   );
 }

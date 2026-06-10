@@ -1,8 +1,6 @@
-import { Suspense } from "react";
 import type { Metadata } from "next";
 import PageHeader from "@/components/common/header";
 import BlogList from "@/components/blogs/blog-section";
-import ProductsLoading from "@/components/shop/products-loading";
 
 export const metadata: Metadata = {
     title: "Flooring & Home Décor Blog Malaysia | Vinyl, SPC & Interior Ideas | Furnishing",
@@ -20,13 +18,11 @@ export default function BlogPage() {
     <main>
       <PageHeader title="Flooring & Home Décor Blog in Malaysia" />
 
-      <Suspense fallback={<ProductsLoading />}>
-        <BlogList
-          showPagination={true}
-          itemsPerPage={9}
-          currentPage={1}
-        />
-      </Suspense>
+      <BlogList
+        showPagination={true}
+        itemsPerPage={9}
+        currentPage={1}
+      />
 
     </main>
   );

@@ -6,7 +6,11 @@ async function fetchWithRetry(url: string, options: RequestInit = {}, retries = 
   for (let i = 0; i < retries; i++) {
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000);
+      // 45s, not 10s: the CMS blogs endpoint regularly takes 30s+ to respond.
+      // With a 10s abort every attempt failed even though the CMS would have
+      // answered. Users never wait on this — pages are prerendered and only
+      // builds/background revalidations hit the CMS.
+      const timeoutId = setTimeout(() => controller.abort(), 45000);
 
       const res = await fetch(url, {
         ...options,
@@ -37,7 +41,9 @@ async function fetchWithRetry(url: string, options: RequestInit = {}, retries = 
     } catch (error) {
       console.error(`Fetch attempt ${i + 1}/${retries} failed:`, error);
 
-      if (i === retries - 1) throw error;
+      // Never throw: a single unreachable-CMS request must not crash a build
+      // or page render. Callers all handle null by falling back to empty data.
+      if (i === retries - 1) return null;
 
       await new Promise((resolve) =>
         setTimeout(resolve, Math.pow(2, i) * 1000)
