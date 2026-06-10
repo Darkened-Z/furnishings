@@ -13,6 +13,7 @@ export default function FurniturePromoBanner() {
                         src="/banner1.avif"
                         alt="Sofa"
                         fill
+                        sizes="(max-width: 768px) 100vw, 50vw"
                         className="object-cover object-left md:object-center transition-transform duration-500 group-hover:scale-110"
                     />
 
@@ -38,6 +39,7 @@ export default function FurniturePromoBanner() {
                         src="/banner2.jpg"
                         alt="Chair"
                         fill
+                        sizes="(max-width: 768px) 100vw, 50vw"
                         className="object-cover object-right md:object-center transition-transform duration-500 group-hover:scale-110"
                     />
 
