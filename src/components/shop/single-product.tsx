@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { Facebook, Twitter, Instagram, Phone, MapPin, Check } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
@@ -10,18 +10,17 @@ import {
     AccordionTrigger,
     AccordionContent,
 } from "@/components/ui/accordion";
-import { getProducts } from "@/lib/api";
 import { Product, getFullImageUrl, formatPrice } from "@/lib/interfaces";
 
 interface SingleProductProps {
     productData: Product;
+    // Related products are computed on the cached server and passed in.
+    relatedProducts?: Product[];
 }
 
-export default function SingleProduct({ productData }: SingleProductProps) {
+export default function SingleProduct({ productData, relatedProducts = [] }: SingleProductProps) {
     const [activeTab, setActiveTab] = useState("description");
     const [selectedImage, setSelectedImage] = useState(0);
-    const [relatedProducts, setRelatedProducts] = useState<Product[]>([]);
-    const [loadingRelated, setLoadingRelated] = useState(true);
 
     // Get category name safely
     const categoryName = productData.category?.name || 'Uncategorized';
@@ -31,45 +30,6 @@ export default function SingleProduct({ productData }: SingleProductProps) {
     const galleryImages = useMemo(() => {
         return (productData.images.gallery || []).filter(img => img);
     }, [productData.images.gallery]);
-
-    // Fetch related products
-    useEffect(() => {
-        const abortController = new AbortController();
-
-        const fetchRelatedProducts = async () => {
-            try {
-                setLoadingRelated(true);
-                const allProducts = await getProducts();
-                
-                // Filter products from same category, excluding current product
-                let related = allProducts
-                    .filter((p: Product)  => 
-                        p.category?.slug === categorySlug && 
-                        p.id !== productData.id
-                    )
-                    .slice(0, 4);
-
-                // If no products in same category, get any other products
-                if (related.length === 0) {
-                    related = allProducts
-                        .filter((p: Product)  => p.id !== productData.id)
-                        .slice(0, 4);
-                }
-
-                setRelatedProducts(related);
-            } catch (error) {
-                if (error instanceof Error && error.name !== 'AbortError') {
-                    console.error('Error fetching related products:', error);
-                }
-            } finally {
-                setLoadingRelated(false);
-            }
-        };
-
-        fetchRelatedProducts();
-
-        return () => abortController.abort();
-    }, [categorySlug, productData.id]);
 
     // Static FAQs as fallback
     const staticFaqs = useMemo(() => [
@@ -448,14 +408,7 @@ export default function SingleProduct({ productData }: SingleProductProps) {
                             Related Products
                         </h2>
 
-                        {loadingRelated ? (
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-                                {[...Array(4)].map((_, index) => (
-                                    <div key={index} className="bg-gray-200 animate-pulse rounded-2xl h-80"></div>
-                                ))}
-                            </div>
-                        ) : (
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
                                 {relatedProducts.map((product) => (
                                     <Link
                                         key={product.id}
@@ -500,7 +453,6 @@ export default function SingleProduct({ productData }: SingleProductProps) {
                                     </Link>
                                 ))}
                             </div>
-                        )}
                     </div>
                 )}
             </div>

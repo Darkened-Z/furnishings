@@ -4,8 +4,8 @@ import type { Metadata } from "next";
 import SingleProduct from "@/components/shop/single-product";
 import PageHeader from "@/components/common/header";
 import ProductLoading from "@/components/shop/product-loading";
-import { getProductBySlug } from "@/lib/api";
-import { getFullImageUrl } from "@/lib/interfaces";
+import { getProductBySlug, getProducts } from "@/lib/api";
+import { getFullImageUrl, Product } from "@/lib/interfaces";
 
 type Params = {
   slug: string[];
@@ -72,15 +72,30 @@ async function ProductContent({
       ...productData.images,
       main_image: getFullImageUrl(productData.images.main_image),
       gallery: (productData.images.gallery || []).map(getFullImageUrl),
-      thumbnails: productData.images.thumbnails 
-        ? (Array.isArray(productData.images.thumbnails) 
+      thumbnails: productData.images.thumbnails
+        ? (Array.isArray(productData.images.thumbnails)
             ? productData.images.thumbnails.map(getFullImageUrl)
             : [])
         : [],
     },
   };
 
-  return <SingleProduct productData={productWithFullUrls} />;
+  // Compute related products on the cached server (same category first,
+  // then fall back to any other products) instead of fetching on the client.
+  const allProducts: Product[] = (await getProducts()) || [];
+  let relatedProducts = allProducts
+    .filter((p) => p.category?.slug === canonicalCategory && p.id !== productData.id)
+    .slice(0, 4);
+  if (relatedProducts.length === 0) {
+    relatedProducts = allProducts.filter((p) => p.id !== productData.id).slice(0, 4);
+  }
+
+  return (
+    <SingleProduct
+      productData={productWithFullUrls}
+      relatedProducts={relatedProducts}
+    />
+  );
 }
 
 export const revalidate = 300;
