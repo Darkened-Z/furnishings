@@ -145,7 +145,9 @@ const CertificateCarousel = () => {
                                 <Image
                                     src={cert.logo}
                                     alt={cert.name}
-                                    className="h-48 w-auto max-w-[140px] object-contain filter hover:brightness-110 transition-all duration-300"
+                                    width={140}
+                                    height={140}
+                                    className="h-auto w-auto max-w-[140px] max-h-[140px] object-contain filter hover:brightness-110 transition-all duration-300"
                                     style={{
                                         background: 'transparent',
                                         objectFit: 'contain'
