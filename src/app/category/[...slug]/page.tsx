@@ -4,8 +4,8 @@ import { Suspense } from "react";
 import CategoryPage from "@/components/category/category-page";
 import PageHeader from "@/components/common/header";
 import ProductsLoading from "@/components/shop/products-loading";
-import { getCategories } from "@/lib/api";
-import { Category } from "@/lib/interfaces";
+import { getCategories, getProducts } from "@/lib/api";
+import { Category, Product } from "@/lib/interfaces";
 
 type Props = {
   params: Promise<{ slug: string[] }>;
@@ -19,20 +19,35 @@ export default async function CategoryPageRoute({ params }: Props) {
   }
 
   const categorySlug = slug[0];
-  const categories: Category[] = await getCategories();
-  const category = categories.find(
-    (c) => c.slug.toLowerCase().trim() === categorySlug.toLowerCase().trim()
+  const normalizedSlug = categorySlug.toLowerCase().trim();
+
+  // Fetch on the cached server and pass to the client filter UI as props.
+  const [categories, allProducts] = await Promise.all([
+    getCategories(),
+    getProducts(),
+  ]);
+
+  const category = (categories as Category[]).find(
+    (c: Category) => c.slug.toLowerCase().trim() === normalizedSlug
   );
 
   if (!category) {
     notFound();
   }
 
+  const categoryProducts: Product[] = (allProducts || []).filter(
+    (p: Product) => p.category?.slug?.toLowerCase().trim() === normalizedSlug
+  );
+
   return (
     <main>
       <PageHeader />
       <Suspense fallback={<ProductsLoading />}>
-        <CategoryPage slug={categorySlug} />
+        <CategoryPage
+          slug={categorySlug}
+          initialCategory={category}
+          initialProducts={categoryProducts}
+        />
       </Suspense>
     </main>
   );

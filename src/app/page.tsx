@@ -17,7 +17,8 @@ const TestimonialsSection = dynamic(() => import("@/components/home/testinomial-
 const FlooringProjectSection = dynamic(() => import("@/components/home/nationwide-section"));
 const CompanyOverviewSection = dynamic(() => import("@/components/home/overview-section"));
 const CTASection2 = dynamic(() => import("@/components/home/CTA-section2"));
-const BlogList = dynamic(() => import("@/components/blogs/blog-section"));
+// BlogList is a server component (fetches on the server) so it ships no client JS.
+import BlogList from "@/components/blogs/blog-section";
 
 export const metadata = {
   title: "Vinyl Flooring Malaysia | SPC, Laminate & Carpet Tiles | Furnishing",

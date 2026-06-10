@@ -1,6 +1,3 @@
-'use client';
-
-import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { getProducts } from "@/lib/api";
@@ -8,7 +5,7 @@ import { Product, getFullImageUrl } from "@/lib/interfaces";
 
 function shuffleArray<T>(array: T[]): T[] {
     if (!Array.isArray(array)) return [];
-    
+
     const shuffled = [...array];
     for (let i = shuffled.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
@@ -17,52 +14,14 @@ function shuffleArray<T>(array: T[]): T[] {
     return shuffled;
 }
 
-export default function RelatedProducts() {
-    const [products, setProducts] = useState<Product[]>([]);
-    const [loading, setLoading] = useState(true);
-
-    useEffect(() => {
-        const fetchProducts = async () => {
-            try {
-                setLoading(true);
-                
-                const productsData = await getProducts();
-
-                if (Array.isArray(productsData) && productsData.length > 0) {
-                    const shuffledProducts = shuffleArray(productsData);
-                    setProducts(shuffledProducts.slice(0, 4));
-                } else {
-                    setProducts([]);
-                }
-            } catch (error) {
-                console.error('Error fetching products:', error);
-                setProducts([]);
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        fetchProducts();
-    }, []);
-
-    if (loading) {
-        return (
-            <div className="py-12">
-                <div className="container mx-auto px-6">
-                    <h2 className="text-3xl font-bold mb-8 text-center">Products</h2>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-                        {[...Array(4)].map((_, i) => (
-                            <div key={i} className="animate-pulse">
-                                <div className="bg-gray-200 h-56 rounded-2xl mb-4"></div>
-                                <div className="bg-gray-200 h-6 rounded mb-2"></div>
-                                <div className="bg-gray-200 h-4 rounded w-2/3"></div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            </div>
-        );
-    }
+// Server component: products are fetched on the cached server (no client-side
+// /api/products download). Rendered as static HTML.
+export default async function RelatedProducts() {
+    const productsData = await getProducts();
+    const products: Product[] =
+        Array.isArray(productsData) && productsData.length > 0
+            ? shuffleArray(productsData).slice(0, 4)
+            : [];
 
     if (products.length === 0) {
         return null;
