@@ -49,11 +49,17 @@ async function fetchWithRetry(url: string, options: RequestInit = {}, retries = 
 }
 
 
+// In the browser we fetch from our own /api proxy routes instead of the CMS:
+// same-origin, served with the Cache-Control headers from next.config.ts, so
+// repeat page views hit the browser/CDN cache instead of re-downloading the
+// full payload from the CMS on every visit.
 const fetchProducts = async () => {
   try {
-    const res = await fetchWithRetry(`${API_BASE}/products`, {
-      next: { revalidate: 1800 },
-    });
+    const isBrowser = typeof window !== "undefined";
+    const res = await fetchWithRetry(
+      isBrowser ? "/api/products" : `${API_BASE}/products`,
+      isBrowser ? {} : { next: { revalidate: 1800 } }
+    );
 
     if (!res) return [];
 
@@ -113,11 +119,13 @@ export const getProductBySlug = cache(async (slug: string) => {
 });
 
 
-export const getCategories = cache(async () => {
+const fetchCategories = async () => {
   try {
-    const res = await fetchWithRetry(`${API_BASE}/categories`, {
-      next: { revalidate: 3600 },
-    });
+    const isBrowser = typeof window !== "undefined";
+    const res = await fetchWithRetry(
+      isBrowser ? "/api/categories" : `${API_BASE}/categories`,
+      isBrowser ? {} : { next: { revalidate: 3600 } }
+    );
 
     if (!res) return [];
 
@@ -127,6 +135,23 @@ export const getCategories = cache(async () => {
     console.error("Failed to fetch categories:", error);
     return [];
   }
+};
+
+// Same browser-side memoization as products: navbar + footer both call
+// getCategories() on every page, so without this the request fires repeatedly.
+let clientCategoriesPromise: ReturnType<typeof fetchCategories> | null = null;
+
+export const getCategories = cache(async () => {
+  if (typeof window !== "undefined") {
+    if (!clientCategoriesPromise) {
+      clientCategoriesPromise = fetchCategories().catch((error) => {
+        clientCategoriesPromise = null; // allow retry on failure
+        throw error;
+      });
+    }
+    return clientCategoriesPromise;
+  }
+  return fetchCategories();
 });
 
 

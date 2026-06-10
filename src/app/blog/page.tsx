@@ -12,17 +12,10 @@ export const metadata: Metadata = {
     },
 };
 
-interface BlogPageProps {
-  searchParams?: Promise<{
-    page?: string;
-  }>;
-}
-
-export default async function BlogPage({ searchParams }: BlogPageProps) {
-
-  const params = await searchParams;
-  const currentPage = Number(params?.page) || 1;
-
+// Static ISR page (no searchParams): pagination lives at /blog/page/[n], so
+// every blog page is served from the static cache and the CMS is only hit on
+// revalidation — never on a user request.
+export default function BlogPage() {
   return (
     <main>
       <PageHeader title="Flooring & Home Décor Blog in Malaysia" />
@@ -31,7 +24,7 @@ export default async function BlogPage({ searchParams }: BlogPageProps) {
         <BlogList
           showPagination={true}
           itemsPerPage={9}
-          currentPage={currentPage}
+          currentPage={1}
         />
       </Suspense>
 
