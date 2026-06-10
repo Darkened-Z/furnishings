@@ -11,6 +11,20 @@ type Params = {
   slug: string[];
 };
 
+// Prerender every product page (SSG + ISR) at its canonical
+// /shop/{category}/{product} path so product pages are served from the static
+// cache — fast TTFB and resilient to CMS slowness/outages. Products added
+// after the build render on first request and are cached from then on.
+export async function generateStaticParams() {
+  const products = await getProducts();
+  if (!Array.isArray(products)) return [];
+  return products
+    .filter((p: Product) => typeof p.slug === "string" && p.slug.length > 0)
+    .map((p: Product) => ({
+      slug: [p.category?.slug || "uncategorized", p.slug],
+    }));
+}
+
 export default async function ProductPage({
   params,
 }: {
